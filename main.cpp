@@ -22,6 +22,7 @@ int main()
     Ptr<Feature2D> surf_detector_obj;
     vector<KeyPoint> keypoints1;
 
+    double t = (double)getTickCount();
     surf_detector_obj = SURF::create(hessian_threshold);
     surf_detector_obj->detect( input_image, keypoints1);
     for( size_t i = 0; i < keypoints1.size(); i++ )
@@ -33,6 +34,8 @@ int main()
         circle( copy, kp_coords , 4, Scalar(0, 0, 255), 1, 8, 0 );
     }
 
+    t = ((double)getTickCount() - t)/getTickFrequency();
+    cout << "Times passed in seconds: " << t << endl;
     namedWindow( "SURF result", WINDOW_AUTOSIZE );
     imshow( "SURF result", copy );
     waitKey();
