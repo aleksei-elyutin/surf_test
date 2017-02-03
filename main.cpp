@@ -5,6 +5,7 @@
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/core.hpp>
 #include "opencv2/imgproc.hpp"
+#include <opencv2/videoio.hpp>
 
 #define IMAGE_ "C:/opencv-master/opencv/samples/data/aero1.jpg"
 
@@ -21,36 +22,50 @@ int drawKeypointCircle (Mat& image, KeyPoint& Kpoint)
 }
 
 
-int main()
+int main(int argc, char* argv[])
 {
-    Mat input_image, copy;
-    input_image = imread(IMAGE_, CV_LOAD_IMAGE_COLOR);
-    copy = input_image.clone();
+    VideoCapture srcVideo(0);
+    if (!srcVideo.isOpened()) {
+        cout << "File invalid!" << endl;
+        return -1;
 
-
-    double hessian_threshold = 2000;
-    Ptr<Feature2D> surf_detector_obj;
-    vector<KeyPoint> keypoints1;
-
-
-    double t = (double)getTickCount();
-    surf_detector_obj = SURF::create(hessian_threshold);
-    surf_detector_obj->detect( input_image, keypoints1);
-
-    vector<KeyPoint>::iterator keypoints1_iterator;
-    keypoints1_iterator = keypoints1.begin();
-
-    while (keypoints1_iterator != keypoints1.end())
-    {
-        drawKeypointCircle(copy, *keypoints1_iterator++);
     }
+    Mat input_image, copy;
+   // namedWindow( "SURF result", WINDOW_AUTOSIZE );
+    while (srcVideo.read(input_image))
+    {
+
+       // input_image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
+         copy = input_image.clone();
 
 
-    t = ((double)getTickCount() - t)/getTickFrequency();
-    cout << "Times passed in seconds: " << t << endl;
-    namedWindow( "SURF result", WINDOW_AUTOSIZE );
-    imshow( "SURF result", copy );
-    waitKey();
+        double hessian_threshold = 2000;
+        Ptr<Feature2D> surf_detector_obj;
+        vector<KeyPoint> keypoints1;
+
+
+        double t = (double)getTickCount();
+        surf_detector_obj = SURF::create(hessian_threshold);
+        surf_detector_obj->detect( input_image, keypoints1);
+
+        vector<KeyPoint>::iterator keypoints1_iterator;
+        keypoints1_iterator = keypoints1.begin();
+
+        while (keypoints1_iterator != keypoints1.end())
+        {
+            drawKeypointCircle(copy, *keypoints1_iterator++);
+        }
+
+        t = ((double)getTickCount() - t)/getTickFrequency();
+        cout << "Times passed in seconds: " << t << endl;
+
+        imshow( "SURF result", copy );
+        //char c = cvWaitKey(33);
+        //if (c == 27) { // если нажата ESC - выходим
+        //        break;
+        //}
+    }
+    //waitKey();
     return 0;
 }
 
