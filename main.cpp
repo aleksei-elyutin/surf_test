@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iterator>
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
@@ -11,6 +12,15 @@ using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
 
+
+int drawKeypointCircle (Mat& image, KeyPoint& Kpoint)
+{
+    Point2f point = Kpoint.pt;
+    circle( image, point , 4, Scalar(0, 0, 255), 1, 8, 0 );
+    return 1;
+}
+
+
 int main()
 {
     Mat input_image, copy;
@@ -22,17 +32,19 @@ int main()
     Ptr<Feature2D> surf_detector_obj;
     vector<KeyPoint> keypoints1;
 
+
     double t = (double)getTickCount();
     surf_detector_obj = SURF::create(hessian_threshold);
     surf_detector_obj->detect( input_image, keypoints1);
-    for( size_t i = 0; i < keypoints1.size(); i++ )
+
+    vector<KeyPoint>::iterator keypoints1_iterator;
+    keypoints1_iterator = keypoints1.begin();
+
+    while (keypoints1_iterator != keypoints1.end())
     {
-        KeyPoint current_kp;
-        Point2f kp_coords;
-        current_kp = keypoints1[i];
-        kp_coords = current_kp.pt;
-        circle( copy, kp_coords , 4, Scalar(0, 0, 255), 1, 8, 0 );
+        drawKeypointCircle(copy, *keypoints1_iterator++);
     }
+
 
     t = ((double)getTickCount() - t)/getTickFrequency();
     cout << "Times passed in seconds: " << t << endl;
