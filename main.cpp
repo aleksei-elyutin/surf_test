@@ -7,7 +7,6 @@
 #include "opencv2/imgproc.hpp"
 #include <opencv2/videoio.hpp>
 
-#define IMAGE_ "C:/opencv-master/opencv/samples/data/aero1.jpg"
 
 using namespace std;
 using namespace cv;
@@ -17,7 +16,7 @@ using namespace cv::xfeatures2d;
 int drawKeypointCircle (Mat& image, KeyPoint& Kpoint)
 {
     Point2f point = Kpoint.pt;
-    circle( image, point , 4, Scalar(0, 0, 255), 1, 8, 0 );
+    circle( image, point , 4, Scalar(0, 200, 128), 1, 8, 0 );
     return 1;
 }
 
@@ -28,12 +27,24 @@ int set_treshold(int tr)
 
 int main(int argc, char* argv[])
 {
-    VideoCapture srcVideo("C:/opencv-master/opencv/samples/data/768x576.avi");
-    if (!srcVideo.isOpened()) {
-        cout << "File invalid!" << endl;
-        return -1;
-
+    VideoCapture srcVideo;
+    if (argc == 1) {
+        srcVideo = VideoCapture(0);
+            if (!srcVideo.isOpened()) {
+                cout << "File invalid!" << endl;
+                return -1;
+            }
     }
+    else {
+         srcVideo = VideoCapture(argv[1]);
+            if (!srcVideo.isOpened()) {
+                cout << "File invalid!" << endl;
+                return -1;
+
+            }
+      }
+
+
     int max_hessian_threshold = 4000, current_hessian_threshold = 100;
     Mat input_image, copy;
     namedWindow( "SURF result", WINDOW_AUTOSIZE );
