@@ -6,7 +6,7 @@
 #include <opencv2/core.hpp>
 #include "opencv2/imgproc.hpp"
 #include <opencv2/videoio.hpp>
-
+#include <opencv2/calib3d.hpp>
 
 using namespace std;
 using namespace cv;
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
 
 
 
-    Mat input_image, gray_copy, copy ;
+    Mat previous_frame, current_frame, gray_copy;
     Ptr<SURF> surf_detector_obj;
     namedWindow( "SURF result", WINDOW_AUTOSIZE );
 
@@ -53,25 +53,28 @@ int main(int argc, char* argv[])
                 1, // nOctaves - число октав
                 3, // nOctaveLayers - число уровней внутри каждой октавы
                 false, // использовать расширенный дескриптор
-                true); // не использовать вычисление ориетнации);
-    
+                true); // не использовать вычисление ориентации);
 
+    vector<KeyPoint> previous_frame_keypoints, current_frame_keypoints;
+    UMat _current_frame_descriptors, _previous_frame_descriptors;
+    Mat current_frame_descriptors = _current_frame_descriptors.getMat(ACCESS_RW),
+        previous_frame_descriptors = _previous_frame_descriptors.getMat(ACCESS_RW);
 
-    while (srcVideo.read(input_image))
+    vector<KeyPoint>::iterator previous_frame_keypoints_iterator, current_frame_keypoints_iterator;
+    FlannBasedMatcher matcher;
+
+    srcVideo.read(previous_frame);
+    surf_detector_obj->detectAndCompute(
+                previous_frame,
+                Mat(),
+                previous_frame_keypoints,
+                previous_frame_descriptors);
+
+    while (srcVideo.read(current_frame))
     {
-       // input_image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-         copy = input_image.clone();
-         cvtColor(input_image,gray_copy,COLOR_BGR2GRAY);
-
-
-
-        vector<KeyPoint> keypoints1;
-        UMat _descriptors1, _descriptors2;
-        Mat descriptors1 = _descriptors1.getMat(ACCESS_RW),
-            descriptors2 = _descriptors2.getMat(ACCESS_RW);
-
-
-
+       // previous_frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
+       //  copy = previous_frame.clone();
+         cvtColor(previous_frame,gray_copy,COLOR_BGR2GRAY);
 
 
         double t = (double)getTickCount(); //Временная метка 1 ***
@@ -79,25 +82,45 @@ int main(int argc, char* argv[])
         surf_detector_obj->setHessianThreshold( current_hessian_threshold );
 
         surf_detector_obj->detectAndCompute(
-                    input_image,
+                    previous_frame,
                     Mat(),
-                    keypoints1,
-                    descriptors1);
+                    current_frame_keypoints,
+                    current_frame_descriptors);
 
+        std::vector< DMatch > matches;
+        matcher.match( previous_frame_descriptors, current_frame_descriptors, matches );
 
-        vector<KeyPoint>::iterator keypoints1_iterator;
-        keypoints1_iterator = keypoints1.begin();
+        std::vector<Point2f> previous_frame_matched_features;
+        std::vector<Point2f> current_frame_matched_features;
 
-        while (keypoints1_iterator != keypoints1.end())
+        for( size_t i = 0; i < matches.size(); i++ )
         {
-            drawKeypointCircle(copy, *keypoints1_iterator++);
+           //-- Get the keypoints from the good matches
+           previous_frame_matched_features.push_back( current_frame_keypoints[ matches[i].queryIdx ].pt );
+           current_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].trainIdx ].pt );
         }
+        Mat mask, copy;
+        Mat H = findHomography( current_frame_matched_features, previous_frame_matched_features, mask ,RANSAC );
+        perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
+        warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));
+
+
+
+        /*previous_frame_keypoints_iterator = previous_frame_keypoints.begin();
+        while (previous_frame_keypoints_iterator != previous_frame_keypoints.end())
+        {
+            drawKeypointCircle(copy, *previous_frame_keypoints_iterator++);
+        }*/
 
         t = ((double)getTickCount() - t)/getTickFrequency(); //Временная метка 2 ***
         cout << "Times passed in seconds: " << t << endl;
 
         imshow( "SURF result", copy );
         if ( cvWaitKey(33)  == 27 )  break; //ESC for exit
+
+        previous_frame = copy.clone();
+        previous_frame_keypoints = current_frame_keypoints;
+        previous_frame_descriptors = current_frame_descriptors;
 
         }
 
