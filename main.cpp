@@ -20,11 +20,6 @@ int drawKeypointCircle (Mat& image, KeyPoint& Kpoint)
     return 1;
 }
 
-int set_treshold(int tr)
-{
-    return tr;
-}
-
 int main(int argc, char* argv[])
 {
     VideoCapture srcVideo;
@@ -45,26 +40,50 @@ int main(int argc, char* argv[])
       }
 
 
-    int max_hessian_threshold = 4000, current_hessian_threshold = 100;
-    Mat input_image, copy;
+
+    Mat input_image, gray_copy, copy ;
+    Ptr<SURF> surf_detector_obj;
     namedWindow( "SURF result", WINDOW_AUTOSIZE );
+
+    int max_hessian_threshold = 4000, current_hessian_threshold = 1000;
+    createTrackbar( "Threshold", "SURF result", &current_hessian_threshold, max_hessian_threshold);
+
+    surf_detector_obj = SURF::create(
+                current_hessian_threshold,
+                1, // nOctaves - число октав
+                3, // nOctaveLayers - число уровней внутри каждой октавы
+                false, // использовать расширенный дескриптор
+                true); // не использовать вычисление ориетнации);
+    
+
 
     while (srcVideo.read(input_image))
     {
-    createTrackbar( "Threshold", "SURF result", &current_hessian_threshold, max_hessian_threshold);
-
        // input_image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
          copy = input_image.clone();
+         cvtColor(input_image,gray_copy,COLOR_BGR2GRAY);
 
 
 
-        Ptr<Feature2D> surf_detector_obj;
         vector<KeyPoint> keypoints1;
+        UMat _descriptors1, _descriptors2;
+        Mat descriptors1 = _descriptors1.getMat(ACCESS_RW),
+            descriptors2 = _descriptors2.getMat(ACCESS_RW);
 
 
-        double t = (double)getTickCount();
-        surf_detector_obj = SURF::create(current_hessian_threshold);
-        surf_detector_obj->detect( input_image, keypoints1);
+
+
+
+        double t = (double)getTickCount(); //Временная метка 1 ***
+
+        surf_detector_obj->setHessianThreshold( current_hessian_threshold );
+
+        surf_detector_obj->detectAndCompute(
+                    input_image,
+                    Mat(),
+                    keypoints1,
+                    descriptors1);
+
 
         vector<KeyPoint>::iterator keypoints1_iterator;
         keypoints1_iterator = keypoints1.begin();
@@ -74,16 +93,14 @@ int main(int argc, char* argv[])
             drawKeypointCircle(copy, *keypoints1_iterator++);
         }
 
-        t = ((double)getTickCount() - t)/getTickFrequency();
+        t = ((double)getTickCount() - t)/getTickFrequency(); //Временная метка 2 ***
         cout << "Times passed in seconds: " << t << endl;
 
         imshow( "SURF result", copy );
-        char c = cvWaitKey(33);
-        if (c == 27) { // если нажата ESC - выходим
-                break;
+        if ( cvWaitKey(33)  == 27 )  break; //ESC for exit
+
         }
-    }
-    //waitKey();
+
     return 0;
 }
 
