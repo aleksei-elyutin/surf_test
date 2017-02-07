@@ -13,15 +13,23 @@ using namespace cv;
 using namespace cv::xfeatures2d;
 
 
-int drawKeypointCircle (Mat& image, KeyPoint& Kpoint)
+int drawKeypointCircle (Mat& image, KeyPoint& Kpoint, Scalar color)
 {
     Point2f point = Kpoint.pt;
-    circle( image, point , 4, Scalar(0, 200, 128), 1, 8, 0 );
+    circle( image, point , 4, color , 1, 8, 0 );
+    return 1;
+}
+int drawLineBetweenKeypoints (Mat& image, KeyPoint& Kpoint1, KeyPoint& Kpoint2, Scalar color)
+{
+    Point2f point1 = Kpoint1.pt;
+    Point2f point2 = Kpoint2.pt;
+    line( image,point1,point2, color, 1, LINE_8, 0);
     return 1;
 }
 
 int main(int argc, char* argv[])
 {
+    //* TODO: исправить говнокод
     VideoCapture srcVideo;
     if (argc == 1) {
         srcVideo = VideoCapture(0);
@@ -38,14 +46,14 @@ int main(int argc, char* argv[])
 
             }
       }
-
+    //**
 
 
     Mat previous_frame, current_frame, gray_copy;
     Ptr<SURF> surf_detector_obj;
-    namedWindow( "SURF result", WINDOW_AUTOSIZE );
+    namedWindow( "SURF result", WINDOW_AUTOSIZE);
 
-    int max_hessian_threshold = 4000, current_hessian_threshold = 1000;
+    int max_hessian_threshold = 4000, current_hessian_threshold = 4000;
     createTrackbar( "Threshold", "SURF result", &current_hessian_threshold, max_hessian_threshold);
 
     surf_detector_obj = SURF::create(
@@ -63,53 +71,91 @@ int main(int argc, char* argv[])
     vector<KeyPoint>::iterator previous_frame_keypoints_iterator, current_frame_keypoints_iterator;
     FlannBasedMatcher matcher;
 
-    srcVideo.read(previous_frame);
-    surf_detector_obj->detectAndCompute(
-                previous_frame,
-                Mat(),
-                previous_frame_keypoints,
-                previous_frame_descriptors);
 
+    srcVideo.set(CV_CAP_PROP_POS_FRAMES, 7);
+
+    cout << "Frame: " << srcVideo.get(CV_CAP_PROP_POS_FRAMES) << endl;
+    srcVideo.read(previous_frame); //читаем первый кадр
+
+
+    srcVideo.set(CV_CAP_PROP_POS_FRAMES, 56);
     while (srcVideo.read(current_frame))
     {
+       cout << "Frame: " << srcVideo.get(CV_CAP_PROP_POS_FRAMES) << endl;
        // previous_frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
        //  copy = previous_frame.clone();
-         cvtColor(previous_frame,gray_copy,COLOR_BGR2GRAY);
+       //  cvtColor(previous_frame,gray_copy,COLOR_BGR2GRAY);
 
 
         double t = (double)getTickCount(); //Временная метка 1 ***
 
-        surf_detector_obj->setHessianThreshold( current_hessian_threshold );
+        surf_detector_obj->setHessianThreshold( current_hessian_threshold ); //установка значения порога гессиана
 
         surf_detector_obj->detectAndCompute(
                     previous_frame,
                     Mat(),
+                    previous_frame_keypoints,
+                    previous_frame_descriptors); //ОТ с дескрипторами для предыдущего кадра
+
+        surf_detector_obj->detectAndCompute(
+                    current_frame,
+                    Mat(),
                     current_frame_keypoints,
-                    current_frame_descriptors);
+                    current_frame_descriptors); // ОТ с дескрипторами для текущего кадра
 
         std::vector< DMatch > matches;
         matcher.match( previous_frame_descriptors, current_frame_descriptors, matches );
 
-        std::vector<Point2f> previous_frame_matched_features;
-        std::vector<Point2f> current_frame_matched_features;
+        std::vector<KeyPoint> previous_frame_matched_features;
+        std::vector<KeyPoint> current_frame_matched_features;
 
         for( size_t i = 0; i < matches.size(); i++ )
         {
            //-- Get the keypoints from the good matches
-           previous_frame_matched_features.push_back( current_frame_keypoints[ matches[i].queryIdx ].pt );
-           current_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].trainIdx ].pt );
+           previous_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].queryIdx ] );
+           //cout <<  matches[i].queryIdx << "     ";
+           current_frame_matched_features.push_back( current_frame_keypoints[ matches[i].trainIdx ] );
+           //cout <<  matches[i].trainIdx << "     " << endl;
         }
-        Mat mask, copy;
-        Mat H = findHomography( current_frame_matched_features, previous_frame_matched_features, mask ,RANSAC );
+        cout << "Number of matches: "<<matches.size() << endl;
+        Mat copy = current_frame.clone();
+
+        /*Mat H = findHomography( current_frame_matched_features, previous_frame_matched_features, RANSAC );
         perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
-        warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));
+        warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));    */
 
 
+         /* previous_frame_keypoints_iterator =  previous_frame_matched_features.begin();
+          cout << "previous_frame_matched_features = " << previous_frame_matched_features.size() << endl;
+          while (previous_frame_keypoints_iterator !=  previous_frame_matched_features.end())
+          {
+              drawKeypointCircle(copy, *previous_frame_keypoints_iterator++,  Scalar(128, 0 , 10));
+          }
+          current_frame_keypoints_iterator =  current_frame_matched_features.begin();
+           cout << "current_frame_matched_features = " << current_frame_matched_features.size() << endl;
+          while (current_frame_keypoints_iterator != current_frame_matched_features.end())
+          {
+              drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
+          }
+            */
+            for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
+            {
+                drawKeypointCircle(copy, previous_frame_matched_features[i],  Scalar(255, 0 , 10));
+                drawKeypointCircle(copy, current_frame_matched_features[i],  Scalar(0, 255 , 10));
+                drawLineBetweenKeypoints(copy, previous_frame_matched_features[i],current_frame_matched_features[i], Scalar (128, 128, 128));
+            }
 
-        /*previous_frame_keypoints_iterator = previous_frame_keypoints.begin();
+
+  /*
+        previous_frame_keypoints_iterator = previous_frame_keypoints.begin();
         while (previous_frame_keypoints_iterator != previous_frame_keypoints.end())
         {
-            drawKeypointCircle(copy, *previous_frame_keypoints_iterator++);
+            drawKeypointCircle(copy, *previous_frame_keypoints_iterator++,  Scalar(128, 0 , 10));
+        }
+        current_frame_keypoints_iterator = current_frame_keypoints.begin();
+        while (current_frame_keypoints_iterator != current_frame_keypoints.end())
+        {
+            drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
         }*/
 
         t = ((double)getTickCount() - t)/getTickFrequency(); //Временная метка 2 ***
@@ -119,8 +165,7 @@ int main(int argc, char* argv[])
         if ( cvWaitKey(33)  == 27 )  break; //ESC for exit
 
         previous_frame = copy.clone();
-        previous_frame_keypoints = current_frame_keypoints;
-        previous_frame_descriptors = current_frame_descriptors;
+
 
         }
 
