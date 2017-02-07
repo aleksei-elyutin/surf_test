@@ -21,6 +21,7 @@ linux {
          -lopencv_dnn \
          -lopencv_dpm \
          -lopencv_face \
+	 -lopencv_features2d \
          -lopencv_flann \
          -lopencv_fuzzy \
          -lopencv_highgui \
