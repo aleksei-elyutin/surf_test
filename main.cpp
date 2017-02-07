@@ -63,25 +63,20 @@ int main(int argc, char* argv[])
                 false, // использовать расширенный дескриптор
                 true); // не использовать вычисление ориентации);
 
-    vector<KeyPoint> previous_frame_keypoints, current_frame_keypoints;
-    UMat _current_frame_descriptors, _previous_frame_descriptors;
-    Mat current_frame_descriptors = _current_frame_descriptors.getMat(ACCESS_RW),
-        previous_frame_descriptors = _previous_frame_descriptors.getMat(ACCESS_RW);
+
 
     vector<KeyPoint>::iterator previous_frame_keypoints_iterator, current_frame_keypoints_iterator;
     FlannBasedMatcher matcher;
 
-
-    srcVideo.set(CV_CAP_PROP_POS_FRAMES, 7);
-
-    cout << "Frame: " << srcVideo.get(CV_CAP_PROP_POS_FRAMES) << endl;
     srcVideo.read(previous_frame); //читаем первый кадр
 
-
-    srcVideo.set(CV_CAP_PROP_POS_FRAMES, 56);
     while (srcVideo.read(current_frame))
     {
-       cout << "Frame: " << srcVideo.get(CV_CAP_PROP_POS_FRAMES) << endl;
+        vector<KeyPoint> previous_frame_keypoints, current_frame_keypoints;
+        UMat _current_frame_descriptors, _previous_frame_descriptors;
+        Mat current_frame_descriptors = _current_frame_descriptors.getMat(ACCESS_RW),
+            previous_frame_descriptors = _previous_frame_descriptors.getMat(ACCESS_RW);
+
        // previous_frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
        //  copy = previous_frame.clone();
        //  cvtColor(previous_frame,gray_copy,COLOR_BGR2GRAY);
@@ -108,21 +103,25 @@ int main(int argc, char* argv[])
 
         std::vector<KeyPoint> previous_frame_matched_features;
         std::vector<KeyPoint> current_frame_matched_features;
+        std::vector<Point2f> previous_frame_matched_points;
+        std::vector<Point2f> current_frame_matched_points;
 
         for( size_t i = 0; i < matches.size(); i++ )
         {
            //-- Get the keypoints from the good matches
            previous_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].queryIdx ] );
+           previous_frame_matched_points.push_back( previous_frame_keypoints[ matches[i].queryIdx ].pt );
            //cout <<  matches[i].queryIdx << "     ";
            current_frame_matched_features.push_back( current_frame_keypoints[ matches[i].trainIdx ] );
+           current_frame_matched_points.push_back( current_frame_keypoints[ matches[i].trainIdx ].pt );
            //cout <<  matches[i].trainIdx << "     " << endl;
         }
         cout << "Number of matches: "<<matches.size() << endl;
         Mat copy = current_frame.clone();
 
-        /*Mat H = findHomography( current_frame_matched_features, previous_frame_matched_features, RANSAC );
-        perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
-        warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));    */
+        Mat H = findHomography( current_frame_matched_points, previous_frame_matched_points, RANSAC );
+        //perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
+        warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));
 
 
          /* previous_frame_keypoints_iterator =  previous_frame_matched_features.begin();
@@ -138,12 +137,12 @@ int main(int argc, char* argv[])
               drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
           }
             */
-            for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
+           /* for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
             {
                 drawKeypointCircle(copy, previous_frame_matched_features[i],  Scalar(255, 0 , 10));
                 drawKeypointCircle(copy, current_frame_matched_features[i],  Scalar(0, 255 , 10));
                 drawLineBetweenKeypoints(copy, previous_frame_matched_features[i],current_frame_matched_features[i], Scalar (128, 128, 128));
-            }
+            }*/
 
 
   /*
