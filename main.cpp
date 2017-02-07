@@ -70,7 +70,11 @@ int main(int argc, char* argv[])
     FlannBasedMatcher matcher;
 
     srcVideo.read(previous_frame); //читаем первый кадр
+<<<<<<< HEAD
     int cnt=0;
+=======
+
+>>>>>>> d3b19aec224b5351ffa028b8f38702ab7aa87d22
     while (srcVideo.read(current_frame))
     {
         vector<KeyPoint> previous_frame_keypoints, current_frame_keypoints;
@@ -120,13 +124,13 @@ int main(int argc, char* argv[])
         cout << "Number of matches: "<<matches.size() << endl;
         Mat copy = current_frame.clone();
 
+
         if (current_frame_matched_points.size()&previous_frame_matched_points.size())
         {
              Mat H = findHomography( current_frame_matched_points, previous_frame_matched_points, RANSAC );
             //perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
              warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));
         }
-
 
          /* previous_frame_keypoints_iterator =  previous_frame_matched_features.begin();
           cout << "previous_frame_matched_features = " << previous_frame_matched_features.size() << endl;
