@@ -71,6 +71,7 @@ int main(int argc, char* argv[])
 
     srcVideo.read(previous_frame); //читаем первый кадр
 
+
     int cnt=0;
 
     while (srcVideo.read(current_frame))
