@@ -27,6 +27,38 @@ int drawLineBetweenKeypoints (Mat& image, KeyPoint& Kpoint1, KeyPoint& Kpoint2, 
     return 1;
 }
 
+int addImFromMask (Mat& input_image1, Mat& input_image2, Mat& output_image, Mat& mask)
+{
+   if ( (input_image1.rows != input_image2.rows) || (input_image1.rows != mask.rows) || (input_image2.rows != mask.rows) ||
+        (input_image1.cols != input_image2.cols) || (input_image1.rows != mask.rows) || (input_image2.rows != mask.rows) )
+   {
+       cout << "addImFromMask: Arrays must be same lengths" << endl;
+       return -1;
+   }
+   if (input_image1.type()!=input_image2.type())
+   {
+       cout << "addImFromMaks: Arrays must the same type" << endl;
+       cout << input_image1.type() << " != " << input_image2.type() << endl;
+       return -1;
+   }
+   output_image = input_image1.clone();
+
+    int rows = mask.rows, cols =  mask.rows;
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            if (mask.at<Vec3b>(i,j)[0]&mask.at<Vec3b>(i,j)[1]&mask.at<Vec3b>(i,j)[2]) {
+                {
+                        output_image.at<Vec3b>(i,j)[0]= input_image2.at<Vec3b>(i,j)[0];
+                        output_image.at<Vec3b>(i,j)[1]= input_image2.at<Vec3b>(i,j)[1];;
+                        output_image.at<Vec3b>(i,j)[2]= input_image2.at<Vec3b>(i,j)[2];;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+
 int main(int argc, char* argv[])
 {
     //* TODO: исправить говнокод
@@ -49,7 +81,7 @@ int main(int argc, char* argv[])
     //**
 
 
-    Mat previous_frame, current_frame, gray_copy;
+    Mat previous_frame, current_frame, mask;
     Ptr<SURF> surf_detector_obj;
     namedWindow( "SURF result", WINDOW_AUTOSIZE);
     namedWindow( "Source", WINDOW_AUTOSIZE);
@@ -72,21 +104,19 @@ int main(int argc, char* argv[])
     srcVideo.read(previous_frame); //читаем первый кадр
 
 
-    int cnt=0;
+    //int cnt=0;
 
     while (srcVideo.read(current_frame))
     {
+        double t = (double)getTickCount(); //Временная метка 1 ***
+
         vector<KeyPoint> previous_frame_keypoints, current_frame_keypoints;
         UMat _current_frame_descriptors, _previous_frame_descriptors;
         Mat current_frame_descriptors = _current_frame_descriptors.getMat(ACCESS_RW),
             previous_frame_descriptors = _previous_frame_descriptors.getMat(ACCESS_RW);
 
-       // previous_frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-       //  copy = previous_frame.clone();
-       //  cvtColor(previous_frame,gray_copy,COLOR_BGR2GRAY);
-
-
-        double t = (double)getTickCount(); //Временная метка 1 ***
+        mask = Mat::zeros(Size(current_frame.cols, current_frame.rows),current_frame.type());
+        Mat warped_mask = mask.clone();
 
         surf_detector_obj->setHessianThreshold( current_hessian_threshold ); //установка значения порога гессиана
 
@@ -112,47 +142,51 @@ int main(int argc, char* argv[])
 
         for( size_t i = 0; i < matches.size(); i++ )
         {
-           //-- Get the keypoints from the good matches
            previous_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].queryIdx ] );
            previous_frame_matched_points.push_back( previous_frame_keypoints[ matches[i].queryIdx ].pt );
-           //cout <<  matches[i].queryIdx << "     ";
            current_frame_matched_features.push_back( current_frame_keypoints[ matches[i].trainIdx ] );
            current_frame_matched_points.push_back( current_frame_keypoints[ matches[i].trainIdx ].pt );
-           //cout <<  matches[i].trainIdx << "     " << endl;
         }
         cout << "Number of matches: "<<matches.size() << endl;
         Mat copy = current_frame.clone();
-
+        Mat previous_frame_copy = previous_frame.clone();
 
         if (current_frame_matched_points.size()&previous_frame_matched_points.size())
         {
              Mat H = findHomography( current_frame_matched_points, previous_frame_matched_points, RANSAC );
-            //perspectiveTransform(current_frame_matched_features, current_frame_matched_features, H);
-             warpPerspective(current_frame, copy,H,Size(current_frame.cols, current_frame.rows));
+             warpPerspective(current_frame, copy, H, Size(current_frame.cols, current_frame.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar  (255,255,255));
+             warpPerspective(mask, warped_mask , H , Size(mask.cols, mask.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar  (255,255,255));
+             if (!addImFromMask(copy, previous_frame, copy, warped_mask))
+             {
+                 cout << "err..." << endl;
+                 return -1;
+             }
+
+
         }
 
-         /* previous_frame_keypoints_iterator =  previous_frame_matched_features.begin();
-          cout << "previous_frame_matched_features = " << previous_frame_matched_features.size() << endl;
-          while (previous_frame_keypoints_iterator !=  previous_frame_matched_features.end())
-          {
-              drawKeypointCircle(copy, *previous_frame_keypoints_iterator++,  Scalar(128, 0 , 10));
-          }
-          current_frame_keypoints_iterator =  current_frame_matched_features.begin();
-           cout << "current_frame_matched_features = " << current_frame_matched_features.size() << endl;
-          while (current_frame_keypoints_iterator != current_frame_matched_features.end())
-          {
-              drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
-          }
-            */
-           /* for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
-            {
-                drawKeypointCircle(copy, previous_frame_matched_features[i],  Scalar(255, 0 , 10));
-                drawKeypointCircle(copy, current_frame_matched_features[i],  Scalar(0, 255 , 10));
-                drawLineBetweenKeypoints(copy, previous_frame_matched_features[i],current_frame_matched_features[i], Scalar (128, 128, 128));
-            }*/
 
 
-  /*
+        /* previous_frame_keypoints_iterator =  previous_frame_matched_features.begin();
+        cout << "previous_frame_matched_features = " << previous_frame_matched_features.size() << endl;
+        while (previous_frame_keypoints_iterator !=  previous_frame_matched_features.end())
+        {
+          drawKeypointCircle(copy, *previous_frame_keypoints_iterator++,  Scalar(128, 0 , 10));
+        }
+        current_frame_keypoints_iterator =  current_frame_matched_features.begin();
+        cout << "current_frame_matched_features = " << current_frame_matched_features.size() << endl;
+        while (current_frame_keypoints_iterator != current_frame_matched_features.end())
+        {
+          drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
+        }
+        */
+        /* for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
+        {
+            drawKeypointCircle(copy, previous_frame_matched_features[i],  Scalar(255, 0 , 10));
+            drawKeypointCircle(copy, current_frame_matched_features[i],  Scalar(0, 255 , 10));
+            drawLineBetweenKeypoints(copy, previous_frame_matched_features[i],current_frame_matched_features[i], Scalar (128, 128, 128));
+        }
+
         previous_frame_keypoints_iterator = previous_frame_keypoints.begin();
         while (previous_frame_keypoints_iterator != previous_frame_keypoints.end())
         {
@@ -164,22 +198,21 @@ int main(int argc, char* argv[])
             drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
         }*/
 
-        t = ((double)getTickCount() - t)/getTickFrequency(); //Временная метка 2 ***
-        cout << "Framerate: " << 1/t << endl;
+
+
+        //Mat preview; double alpha = 0.4;
+        //addWeighted( copy, 0.5, previous_frame, 0.5, 0.0, copy);
 
         imshow( "SURF result", copy );
         imshow( "Source", current_frame );
+        previous_frame = copy.clone();
 
-        if ( cvWaitKey(33)  == 27 )  break; //ESC for exit
-        if (cnt<5)
-        {
-             cnt++;
-             previous_frame = copy.clone();
-        }
-        else {
-            previous_frame = current_frame;
-            cnt=0;
-        }
+        t = ((double)getTickCount() - t)/getTickFrequency(); //Временная метка 2 ***
+        if ( cvWaitKey(33)  == 27 )  break;
+
+        cout << "Framerate: " << 1/t << endl;
+
+
 
         }
 
