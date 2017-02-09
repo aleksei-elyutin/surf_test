@@ -7,6 +7,7 @@
 #include "opencv2/imgproc.hpp"
 #include <opencv2/videoio.hpp>
 #include <opencv2/calib3d.hpp>
+#include <opencv2/videostab.hpp>
 
 using namespace std;
 using namespace cv;
@@ -58,6 +59,19 @@ int addImFromMask (Mat& input_image1, Mat& input_image2, Mat& output_image, Mat&
     return 1;
 }
 
+Mat createAffineMatrix (Mat h)
+{
+    Mat tmp(2,3, h.type());
+    tmp.at<double>(0,0) = h.at<double>(0,0);
+    tmp.at<double>(0,2) = h.at<double>(0,1);
+    tmp.at<double>(0,3) = h.at<double>(0,3);
+    tmp.at<double>(1,1) = h.at<double>(1,1);
+    tmp.at<double>(1,2) = h.at<double>(1,2);
+    tmp.at<double>(1,3) = h.at<double>(1,3);
+    return tmp;
+
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -98,7 +112,6 @@ int main(int argc, char* argv[])
 
 
 
-    vector<KeyPoint>::iterator previous_frame_keypoints_iterator, current_frame_keypoints_iterator;
     FlannBasedMatcher matcher;
 
     srcVideo.read(previous_frame); //читаем первый кадр
@@ -135,27 +148,33 @@ int main(int argc, char* argv[])
         std::vector< DMatch > matches;
         matcher.match( previous_frame_descriptors, current_frame_descriptors, matches );
 
-        std::vector<KeyPoint> previous_frame_matched_features;
-        std::vector<KeyPoint> current_frame_matched_features;
+        //std::vector<KeyPoint> previous_frame_matched_features;
+        //std::vector<KeyPoint> current_frame_matched_features;
         std::vector<Point2f> previous_frame_matched_points;
         std::vector<Point2f> current_frame_matched_points;
 
         for( size_t i = 0; i < matches.size(); i++ )
         {
-           previous_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].queryIdx ] );
+           //previous_frame_matched_features.push_back( previous_frame_keypoints[ matches[i].queryIdx ] );
            previous_frame_matched_points.push_back( previous_frame_keypoints[ matches[i].queryIdx ].pt );
-           current_frame_matched_features.push_back( current_frame_keypoints[ matches[i].trainIdx ] );
+           //current_frame_matched_features.push_back( current_frame_keypoints[ matches[i].trainIdx ] );
            current_frame_matched_points.push_back( current_frame_keypoints[ matches[i].trainIdx ].pt );
         }
         cout << "Number of matches: "<<matches.size() << endl;
         Mat copy = current_frame.clone();
-        Mat previous_frame_copy = previous_frame.clone();
 
         if (current_frame_matched_points.size()&previous_frame_matched_points.size())
         {
+
+             Mat gmotion = videostab::estimateGlobalMotionRansac(previous_frame_matched_points, current_frame_matched_points);
+             cout << "etimated matrix: " << endl << gmotion << endl;
              Mat H = findHomography( current_frame_matched_points, previous_frame_matched_points, RANSAC );
-             warpPerspective(current_frame, copy, H, Size(current_frame.cols, current_frame.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar  (255,255,255));
-             warpPerspective(mask, warped_mask , H , Size(mask.cols, mask.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar  (255,255,255));
+             cout << "homography matrix: " << endl << H << endl;
+             Mat H_affine = createAffineMatrix(gmotion);
+             cout << "affine: " << endl << H_affine << endl;
+
+             warpAffine(current_frame, copy, H_affine, Size(current_frame.cols, current_frame.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar(255,255,255));
+             warpAffine(mask, warped_mask , H_affine , Size(mask.cols, mask.rows),INTER_LINEAR, BORDER_CONSTANT, Scalar(255,255,255));
              if (!addImFromMask(copy, previous_frame, copy, warped_mask))
              {
                  cout << "err..." << endl;
@@ -180,7 +199,9 @@ int main(int argc, char* argv[])
           drawKeypointCircle(copy, *current_frame_keypoints_iterator++,  Scalar(0, 200, 128));
         }
         */
-        /* for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
+        /*
+        vector<KeyPoint>::iterator previous_frame_keypoints_iterator, current_frame_keypoints_iterator;
+        for (size_t i = 0; i<previous_frame_matched_features.size(); i++ )
         {
             drawKeypointCircle(copy, previous_frame_matched_features[i],  Scalar(255, 0 , 10));
             drawKeypointCircle(copy, current_frame_matched_features[i],  Scalar(0, 255 , 10));
