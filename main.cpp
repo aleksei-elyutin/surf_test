@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
     //**
 
 
-    Mat previous_frame, current_frame, mask;
+
     Ptr<SURF> surf_detector_obj;
     namedWindow( "SURF result", WINDOW_AUTOSIZE);
     namedWindow( "Source", WINDOW_AUTOSIZE);
